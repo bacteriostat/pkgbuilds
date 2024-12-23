@@ -1,9 +1,10 @@
 # Maintainer: Plague-doctor <plague at privacyrequired dot com >
+# Co-maintainer: bacteriostat <dev dot bacteriostat at aleeas dot com>
 # Credit for simplifying build goes to Martin Cihlář.
 
 _pkgname=freetube
 pkgname=${_pkgname}-bin
-pkgver=0.21.2
+pkgver=0.22.1
 pkgrel=1
 pkgdesc="An open source desktop YouTube player built with privacy in mind."
 arch=('x86_64' 'aarch64')
@@ -28,5 +29,5 @@ package() {
     ln -s "/opt/FreeTube/$_pkgname" "$pkgdir/usr/bin/$_pkgname"
 }
 
-md5sums_x86_64=('d6c4c37e14ee53930a73d30daa4d91bd')
-md5sums_aarch64=('e81bcad1f804a75fc725e4fa3c7aa5ff')
+md5sums_x86_64=('30ec39ed525d1bd1f0dbe68713614b35')
+md5sums_aarch64=('7f4677c52645a860dc75ca9e6eacfbcf')
