@@ -1,15 +1,17 @@
-# Maintainer: Jonathon Fernyhough <jonathon"m2x+dev>
+# Maintainer: Bacteriostat <dev dot bacteria at aleeas dot com>
+# Contributor: Jonathon Fernyhough <jonathon"m2x+dev>
 # Contributor: Sam Guymer <sam at guymer dot me>
 # Contributor: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Contributor: Guillaume ALAUX <guillaume@archlinux.org>
 
 # This PKGBUILD adapted from zulu-11-bin
 
-_jdkname=liberica-jdk-17-full
-pkgname="${_jdkname}-bin"
+_pkgbase=liberica-jdk-full
 _java_ver=17
-pkgver=${_java_ver}.0.5.u8
-_pkgver=${_java_ver}.0.5+8
+_jdkname="liberica-jdk-${_java_ver}-full"
+pkgname="${_jdkname}-bin"
+pkgver=${_java_ver}.0.14.u10
+_pkgver=${_java_ver}.0.14+10
 pkgrel=1
 pkgdesc='BellSoft builds of OpenJDK are fully certified and 100% open source Java Development Kits (JDKs) for all Java development and production workloads. Full version includes OpenJFX.'
 arch=(aarch64 armv7h armv8h x86_64)
@@ -48,37 +50,32 @@ backup=(etc/${_jdkname}/logging.properties
         etc/${_jdkname}/security/policy/unlimited/default_local.policy
         etc/${_jdkname}/sound.properties)
 
-source=(freedesktop-java.desktop.in
-        freedesktop-jconsole.desktop.in
-        freedesktop-jshell.desktop.in
-        ${_jdkname}16.png::https://hg.openjdk.java.net/jdk/jdk/raw-file/ee1d592a9f53/src/java.desktop/unix/classes/sun/awt/X11/java-icon16.png
-        ${_jdkname}24.png::https://hg.openjdk.java.net/jdk/jdk/raw-file/ee1d592a9f53/src/java.desktop/unix/classes/sun/awt/X11/java-icon24.png
-        ${_jdkname}32.png::https://hg.openjdk.java.net/jdk/jdk/raw-file/ee1d592a9f53/src/java.desktop/unix/classes/sun/awt/X11/java-icon32.png
-        ${_jdkname}48.png::https://hg.openjdk.java.net/jdk/jdk/raw-file/ee1d592a9f53/src/java.desktop/unix/classes/sun/awt/X11/java-icon48.png)
-sha1sums=(19873c53aaf234d215b9892450bfd4e95c13ed7c
-          5347a8c12c16a29aada0babdfda5dbef236717c0
-          8a66b7e3c5fa8b2f11ee1dd2b11127f7156cb60b
-          36096a57cebd346e08efc68326fe77960d43726f
-          b8233f9ff931ce97a265827fac18ed90f4e248c6
-          a0da2952bc87a425182c3ac88e88649fbaa7cb65
-          eb36aa73a9be98164447774217865b91e79d503c)
+source=(
+  freedesktop-java.desktop.in
+  freedesktop-jconsole.desktop.in
+  freedesktop-jshell.desktop.in
+)
 
 source_aarch64=(https://download.bell-sw.com/java/$_pkgver/bellsoft-jdk$_pkgver-linux-aarch64-full.tar.gz)
 source_armv7h=(https://download.bell-sw.com/java/$_pkgver/bellsoft-jdk$_pkgver-linux-arm32-vfp-hflt-full.tar.gz)
 source_armv8h=(${source_armv7h[@]})
 source_x86_64=(https://download.bell-sw.com/java/$_pkgver/bellsoft-jdk$_pkgver-linux-amd64-full.tar.gz)
 
+sha1sums=('7d79a8c26a125f55f52493df7dca2189c8521b3c'
+          '80a166acf99b351aa466452782a8faac3eca2d26'
+          '4b5684dc98370ecbff274195b42c3ce559226596')
+sha1sums_aarch64=('7fe1eb041995cd0d27226f97670a1fd8eb08e3ac')
+sha1sums_armv7h=('f5c47406bf29f87a8627b5d190b031d31272792a')
+sha1sums_armv8h=('f5c47406bf29f87a8627b5d190b031d31272792a')
+sha1sums_x86_64=('4aa376c5bcf24c2001510487ca0243e157536e22')
+
 # Upstream-provided
-sha1sums_aarch64=('3b54eb34c0c19d706967c0019036d91ba383ab04')
-sha1sums_armv7h=('c53bc55c9218270da1db1436d54388fccd9fa17b')
-sha1sums_armv8h=(${sha1sums_armv7h[@]})
-sha1sums_x86_64=('3d38998904b408abb4384b99559e8d7cb765b3db')
 
 _jvmdir="/usr/lib/jvm/${_jdkname}"
 
 prepare() {
   for f in *.desktop.in; do
-    sed "s|@@VER@@|${pkgver/.*}|g" $f >> ${f/.in}
+    sed "s|@@VER@@|${pkgver/.*}|g; s|@@PATH@@|${_jvmdir}|g; s|@@ICON@@|${_jdkname}|g;" $f >> ${f/.in}
   done
 }
 
@@ -113,11 +110,4 @@ package() {
   rm -f "${pkgdir}/${_jvmdir}/lib/security/cacerts"
   ln -sf /etc/ssl/certs/java/cacerts "${pkgdir}/${_jvmdir}/lib/security/cacerts"
 
-  # Icons and launchers
-  for s in 16 24 32 48; do
-    install -Dm644 "${srcdir}"/${_jdkname}${s}.png "${pkgdir}"/usr/share/icons/hicolor/${s}x${s}/apps/${_jdkname}.png
-  done
-  for f in java jconsole jshell; do
-    install -Dm644 "${srcdir}"/freedesktop-${f}.desktop "${pkgdir}"/usr/share/applications/${f}-${_jdkname}.desktop
-  done
 }
