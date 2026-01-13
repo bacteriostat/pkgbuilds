@@ -2,7 +2,7 @@
 
 _pkgname=joplin
 pkgname=${_pkgname}-bin
-pkgver=3.5.6
+pkgver=3.5.11
 pkgrel=1
 pkgdesc="Note Taking App. Debian Package."
 arch=('x86_64')
