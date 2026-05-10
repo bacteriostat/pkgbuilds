@@ -27,3 +27,7 @@
 
 # claude
 .claude/**
+
+# docs are tracked despite the */**/ rule
+!docs/
+!docs/**/
