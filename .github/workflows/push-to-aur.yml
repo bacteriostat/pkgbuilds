@@ -28,15 +28,25 @@ jobs:
       - name: Push changed packages to AUR
         run: |
           set -euo pipefail
-          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '/PKGBUILD$' | sed 's|/PKGBUILD$||')
+          WORKDIR=$(pwd)
+          FAILED=()
+          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '/PKGBUILD$' | sed 's|/PKGBUILD$||' || true)
           if [[ -z "$CHANGED" ]]; then
             echo "No PKGBUILD changes detected"
             exit 0
           fi
-          for PACKAGE in $CHANGED; do
+          while IFS= read -r PACKAGE; do
             echo "Pushing ${PACKAGE} to AUR..."
-            git clone "ssh://aur@aur.archlinux.org/${PACKAGE}.git" "/tmp/aur-${PACKAGE}" \
-              || { echo "ERROR: Failed to clone AUR repo for ${PACKAGE}"; exit 1; }
+            if ! git clone "ssh://aur@aur.archlinux.org/${PACKAGE}.git" "/tmp/aur-${PACKAGE}"; then
+              echo "ERROR: Failed to clone AUR repo for ${PACKAGE}"
+              FAILED+=("${PACKAGE}")
+              continue
+            fi
+            if [[ ! -f "${PACKAGE}/.SRCINFO" ]]; then
+              echo "ERROR: ${PACKAGE}/.SRCINFO missing — cannot push to AUR"
+              FAILED+=("${PACKAGE}")
+              continue
+            fi
             cp "${PACKAGE}/PKGBUILD" "/tmp/aur-${PACKAGE}/"
             cp "${PACKAGE}/.SRCINFO" "/tmp/aur-${PACKAGE}/"
             cd "/tmp/aur-${PACKAGE}"
@@ -45,11 +55,18 @@ jobs:
             git add PKGBUILD .SRCINFO
             if git diff --quiet --cached; then
               echo "No changes for ${PACKAGE}, skipping"
-              cd -
+              cd "$WORKDIR"
               continue
             fi
-            PKGVER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2-)
+            PKGVER=$(grep -m1 '^pkgver=' PKGBUILD | cut -d= -f2-)
             git commit -m "${PACKAGE}: update to ${PKGVER}"
-            git push origin master || { echo "ERROR: Failed to push ${PACKAGE} to AUR"; exit 1; }
-            cd -
-          done
+            if ! git push origin master; then
+              echo "ERROR: Failed to push ${PACKAGE} to AUR"
+              FAILED+=("${PACKAGE}")
+            fi
+            cd "$WORKDIR"
+          done <<< "$CHANGED"
+          if [[ ${#FAILED[@]} -gt 0 ]]; then
+            echo "FAILED packages: ${FAILED[*]}"
+            exit 1
+          fi
