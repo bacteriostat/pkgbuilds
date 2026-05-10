@@ -31,3 +31,7 @@
 # docs are tracked despite the */**/ rule
 !docs/
 !docs/**/
+
+# github workflows are tracked despite the */**/ rule
+!.github/
+!.github/**/
