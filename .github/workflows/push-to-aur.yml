@@ -1,17 +1,19 @@
-name: Push joplin-bin to AUR
+name: Push packages to AUR
 
 on:
   push:
     branches:
       - master
     paths:
-      - 'joplin-bin/**'
+      - '*/PKGBUILD'
 
 jobs:
   push:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Setup AUR SSH
         env:
@@ -23,27 +25,31 @@ jobs:
           ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
           printf 'Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n' >> ~/.ssh/config
 
-      - name: Clone AUR repo
-        run: |
-          git clone ssh://aur@aur.archlinux.org/joplin-bin.git /tmp/aur-joplin-bin \
-            || { echo "ERROR: Failed to clone AUR repo — AUR may be unreachable"; exit 1; }
-
-      - name: Copy updated files
-        run: |
-          cp joplin-bin/PKGBUILD /tmp/aur-joplin-bin/
-          cp joplin-bin/.SRCINFO /tmp/aur-joplin-bin/
-
-      - name: Commit and push to AUR
+      - name: Push changed packages to AUR
         run: |
           set -euo pipefail
-          cd /tmp/aur-joplin-bin
-          git config user.name "bacteriostat"
-          git config user.email "dev.bacteriostat@aleeas.com"
-          git add PKGBUILD .SRCINFO
-          if git diff --quiet --cached; then
-            echo "No changes to push to AUR"
+          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '/PKGBUILD$' | sed 's|/PKGBUILD$||')
+          if [[ -z "$CHANGED" ]]; then
+            echo "No PKGBUILD changes detected"
             exit 0
           fi
-          PKGVER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
-          git commit -m "joplin-bin: update to ${PKGVER}"
-          git push origin master
+          for PACKAGE in $CHANGED; do
+            echo "Pushing ${PACKAGE} to AUR..."
+            git clone "ssh://aur@aur.archlinux.org/${PACKAGE}.git" "/tmp/aur-${PACKAGE}" \
+              || { echo "ERROR: Failed to clone AUR repo for ${PACKAGE}"; exit 1; }
+            cp "${PACKAGE}/PKGBUILD" "/tmp/aur-${PACKAGE}/"
+            cp "${PACKAGE}/.SRCINFO" "/tmp/aur-${PACKAGE}/"
+            cd "/tmp/aur-${PACKAGE}"
+            git config user.name "bacteriostat"
+            git config user.email "dev.bacteriostat@aleeas.com"
+            git add PKGBUILD .SRCINFO
+            if git diff --quiet --cached; then
+              echo "No changes for ${PACKAGE}, skipping"
+              cd -
+              continue
+            fi
+            PKGVER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2-)
+            git commit -m "${PACKAGE}: update to ${PKGVER}"
+            git push origin master || { echo "ERROR: Failed to push ${PACKAGE} to AUR"; exit 1; }
+            cd -
+          done
