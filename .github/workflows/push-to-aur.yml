@@ -1,0 +1,44 @@
+name: Push joplin-bin to AUR
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'joplin-bin/**'
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup AUR SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          printf 'Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n' >> ~/.ssh/config
+
+      - name: Clone AUR repo
+        run: git clone ssh://aur@aur.archlinux.org/joplin-bin.git /tmp/aur-joplin-bin
+
+      - name: Copy updated files
+        run: |
+          cp joplin-bin/PKGBUILD /tmp/aur-joplin-bin/
+          cp joplin-bin/.SRCINFO /tmp/aur-joplin-bin/
+
+      - name: Commit and push to AUR
+        run: |
+          cd /tmp/aur-joplin-bin
+          git config user.name "bacteriostat"
+          git config user.email "dev.bacteriostat@aleeas.com"
+          git add PKGBUILD .SRCINFO
+          if git diff --quiet --cached; then
+            echo "No changes to push to AUR"
+            exit 0
+          fi
+          PKGVER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
+          git commit -m "joplin-bin: update to ${PKGVER}"
+          git push origin master
