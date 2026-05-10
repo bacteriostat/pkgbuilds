@@ -7,6 +7,7 @@ on:
 
 permissions:
   actions: write
+  contents: read
 
 jobs:
   check:
@@ -23,6 +24,10 @@ jobs:
             https://api.github.com/repos/laurent22/joplin/releases/latest \
             | grep '"tag_name"' \
             | sed 's/.*"v\([^"]*\)".*/\1/')
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: Failed to extract upstream version from API response" >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Get current pkgver
@@ -33,9 +38,10 @@ jobs:
 
       - name: Dispatch update workflow if new version found
         if: steps.upstream.outputs.version != steps.current.outputs.version
-        run: |
-          echo "New version: ${{ steps.upstream.outputs.version }} (current: ${{ steps.current.outputs.version }})"
-          gh workflow run update-pkgbuild.yml \
-            --field version=${{ steps.upstream.outputs.version }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
+          CURRENT_VERSION: ${{ steps.current.outputs.version }}
+        run: |
+          echo "New version: ${UPSTREAM_VERSION} (current: ${CURRENT_VERSION})"
+          gh workflow run update-pkgbuild.yml --field "version=${UPSTREAM_VERSION}"
