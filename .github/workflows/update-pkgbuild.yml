@@ -1,0 +1,53 @@
+name: Update joplin-bin PKGBUILD
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version number (e.g. 3.6.12)'
+        required: true
+        type: string
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update pkgver, pkgrel, and switch md5 to sha256
+        run: |
+          sed -i "s/^pkgver=.*/pkgver=${{ inputs.version }}/" joplin-bin/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" joplin-bin/PKGBUILD
+          sed -i "s/^md5sums_x86_64=/sha256sums_x86_64=/" joplin-bin/PKGBUILD
+
+      - name: Run updpkgsums and regenerate .SRCINFO in Arch container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/joplin-bin:/pkg" \
+            archlinux:latest \
+            bash -c "
+              pacman -Sy --noconfirm pacman-contrib base-devel &&
+              useradd -m builder &&
+              chown -R builder /pkg &&
+              su builder -c 'cd /pkg && updpkgsums && makepkg --printsrcinfo > .SRCINFO'
+            "
+          sudo chown -R "$(id -u):$(id -g)" joplin-bin/
+
+      - name: Create update branch and open PR
+        run: |
+          git config user.name "bacteriostat"
+          git config user.email "dev.bacteriostat@aleeas.com"
+          git checkout -b "update/joplin-bin-v${{ inputs.version }}"
+          git add joplin-bin/PKGBUILD joplin-bin/.SRCINFO
+          git commit -m "joplin-bin: update to ${{ inputs.version }}"
+          git push origin "update/joplin-bin-v${{ inputs.version }}"
+          gh pr create \
+            --title "joplin-bin: update to ${{ inputs.version }}" \
+            --body "Automated update to upstream release v${{ inputs.version }}." \
+            --base master
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
