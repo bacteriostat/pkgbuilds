@@ -1,8 +1,12 @@
-name: Update joplin-bin PKGBUILD
+name: Update AUR PKGBUILD
 
 on:
   workflow_dispatch:
     inputs:
+      package:
+        description: 'Package name (e.g. joplin-bin)'
+        required: true
+        type: string
       version:
         description: 'New version number (e.g. 3.6.12)'
         required: true
@@ -20,18 +24,20 @@ jobs:
 
       - name: Update pkgver, pkgrel, and switch md5 to sha256
         env:
+          PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
         run: |
-          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" joplin-bin/PKGBUILD
-          sed -i "s/^pkgrel=.*/pkgrel=1/" joplin-bin/PKGBUILD
-          sed -i "s/^md5sums_x86_64=/sha256sums_x86_64=/" joplin-bin/PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" "${PACKAGE}/PKGBUILD"
+          sed -i "s/^pkgrel=.*/pkgrel=1/" "${PACKAGE}/PKGBUILD"
+          sed -i "s/^md5sums_x86_64=/sha256sums_x86_64=/" "${PACKAGE}/PKGBUILD"
 
       - name: Run updpkgsums and regenerate .SRCINFO in Arch container
         env:
           WORKSPACE: ${{ github.workspace }}
+          PACKAGE: ${{ inputs.package }}
         run: |
           docker run --rm \
-            -v "${WORKSPACE}/joplin-bin:/pkg" \
+            -v "${WORKSPACE}/${PACKAGE}:/pkg" \
             archlinux:latest \
             bash -c "
               pacman -Syu --noconfirm pacman-contrib base-devel &&
@@ -39,23 +45,24 @@ jobs:
               chown -R builder /pkg &&
               su builder -c 'cd /pkg && updpkgsums && makepkg --printsrcinfo > .SRCINFO'
             "
-          sudo chown -R "$(id -u):$(id -g)" joplin-bin/
+          sudo chown -R "$(id -u):$(id -g)" "${PACKAGE}/"
 
       - name: Create update branch and open PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
         run: |
           git config user.name "bacteriostat"
           git config user.email "dev.bacteriostat@aleeas.com"
-          BRANCH="update/joplin-bin-v${VERSION}"
+          BRANCH="update/${PACKAGE}-v${VERSION}"
           git checkout -b "${BRANCH}" 2>/dev/null || git checkout "${BRANCH}"
-          git add joplin-bin/PKGBUILD joplin-bin/.SRCINFO
-          git commit -m "joplin-bin: update to ${VERSION}" || echo "Nothing to commit"
+          git add "${PACKAGE}/PKGBUILD" "${PACKAGE}/.SRCINFO"
+          git commit -m "${PACKAGE}: update to ${VERSION}" || echo "Nothing to commit"
           git push origin "${BRANCH}" --force-with-lease
           if ! gh pr view "${BRANCH}" --json state -q .state 2>/dev/null | grep -q OPEN; then
             gh pr create \
-              --title "joplin-bin: update to ${VERSION}" \
+              --title "${PACKAGE}: update to ${VERSION}" \
               --body "Automated update to upstream release v${VERSION}." \
               --base master
           else
