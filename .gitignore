@@ -24,3 +24,6 @@
 
 # lockfiles from mkarchchroot+mkpkg
 */*.lock
+
+# claude
+.claude/**
