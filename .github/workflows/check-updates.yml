@@ -1,4 +1,4 @@
-name: Check joplin-bin for upstream updates
+name: Check all packages for upstream updates
 
 on:
   schedule:
@@ -10,38 +10,75 @@ permissions:
   contents: read
 
 jobs:
+  load-config:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.read.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse packages config
+        id: read
+        run: |
+          PACKAGES=$(python3 -c "
+          import yaml, json
+          with open('.github/packages.yml') as f:
+              config = yaml.safe_load(f)
+          pkgs = [p for p in config['packages'] if p.get('check_type') == 'github']
+          for p in pkgs:
+              if 'tag_pattern' not in p:
+                  p['tag_pattern'] = 's/^v//'
+          print(json.dumps(pkgs))
+          ")
+          echo "packages=$PACKAGES" >> "$GITHUB_OUTPUT"
+
   check:
+    needs: load-config
+    if: needs.load-config.outputs.packages != '[]'
+    strategy:
+      matrix:
+        package: ${{ fromJSON(needs.load-config.outputs.packages) }}
+      fail-fast: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get latest Joplin release version
+      - name: Get latest upstream version
         id: upstream
+        env:
+          UPSTREAM_REPO: ${{ matrix.package.upstream }}
+          TAG_PATTERN: ${{ matrix.package.tag_pattern }}
         run: |
-          VERSION=$(curl -s \
+          TAG=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/laurent22/joplin/releases/latest \
+            "https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest" \
             | grep '"tag_name"' \
-            | sed 's/.*"v\([^"]*\)".*/\1/')
-          if [[ -z "$VERSION" ]]; then
-            echo "ERROR: Failed to extract upstream version from API response" >&2
+            | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+          if [[ -z "$TAG" ]]; then
+            echo "ERROR: Failed to get upstream tag for ${UPSTREAM_REPO}" >&2
             exit 1
           fi
+          VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Get current pkgver
         id: current
+        env:
+          PACKAGE: ${{ matrix.package.name }}
         run: |
-          PKGVER=$(grep '^pkgver=' joplin-bin/PKGBUILD | cut -d= -f2)
+          PKGVER=$(grep '^pkgver=' "${PACKAGE}/PKGBUILD" | cut -d= -f2)
           echo "version=$PKGVER" >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch update workflow if new version found
+      - name: Dispatch update if new version found
         if: steps.upstream.outputs.version != steps.current.outputs.version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
           CURRENT_VERSION: ${{ steps.current.outputs.version }}
+          PACKAGE: ${{ matrix.package.name }}
         run: |
-          echo "New version: ${UPSTREAM_VERSION} (current: ${CURRENT_VERSION})"
-          gh workflow run update-pkgbuild.yml --field "version=${UPSTREAM_VERSION}"
+          echo "New version for ${PACKAGE}: ${UPSTREAM_VERSION} (current: ${CURRENT_VERSION})"
+          gh workflow run update-pkgbuild.yml \
+            --field "package=${PACKAGE}" \
+            --field "version=${UPSTREAM_VERSION}"
