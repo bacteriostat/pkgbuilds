@@ -12,6 +12,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: update-${{ inputs.package }}
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -29,7 +33,7 @@ jobs:
         run: |
           sed -i "s/^pkgver=.*/pkgver=${VERSION}/" "${PACKAGE}/PKGBUILD"
           sed -i "s/^pkgrel=.*/pkgrel=1/" "${PACKAGE}/PKGBUILD"
-          sed -i "s/^md5sums_\([a-z0-9_]*\)=/sha256sums_\1=/" "${PACKAGE}/PKGBUILD"
+          sed -i -E "s/^md5sums(_[a-z0-9_]+)?=/sha256sums\1=/" "${PACKAGE}/PKGBUILD"
 
       - name: Run updpkgsums and regenerate .SRCINFO in Arch container
         env:
@@ -58,13 +62,17 @@ jobs:
           BRANCH="update/${PACKAGE}-v${VERSION}"
           git checkout -b "${BRANCH}" 2>/dev/null || git checkout "${BRANCH}"
           git add "${PACKAGE}/PKGBUILD" "${PACKAGE}/.SRCINFO"
-          git commit -m "${PACKAGE}: update to ${VERSION}" || echo "Nothing to commit"
+          if git diff --cached --quiet; then
+            echo "Nothing to commit, skipping"
+          else
+            git commit -m "${PACKAGE}: update to ${VERSION}"
+          fi
           git push origin "${BRANCH}" --force-with-lease
-          if ! gh pr view "${BRANCH}" --json state -q .state 2>/dev/null | grep -q OPEN; then
+          if gh pr list --head "${BRANCH}" --state open --json number -q '.[0].number' 2>/dev/null | grep -q .; then
+            echo "PR for ${BRANCH} already open, skipping creation"
+          else
             gh pr create \
               --title "${PACKAGE}: update to ${VERSION}" \
               --body "Automated update to upstream release v${VERSION}." \
               --base master
-          else
-            echo "PR for ${BRANCH} already open, skipping creation"
           fi
