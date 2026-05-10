@@ -1,0 +1,9 @@
+packages:
+  - name: joplin-bin
+    check_type: github
+    upstream: laurent22/joplin
+    tag_pattern: 's/^v//'
+  - name: freetube-bin
+    check_type: github
+    upstream: FreeTubeApp/FreeTube
+    tag_pattern: 's/^v//;s/-beta$//'
