@@ -26,14 +26,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update pkgver, pkgrel, and switch md5 to sha256
+      - name: Update pkgver and pkgrel
         env:
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
         run: |
           sed -i "s/^pkgver=.*/pkgver=${VERSION}/" "${PACKAGE}/PKGBUILD"
           sed -i "s/^pkgrel=.*/pkgrel=1/" "${PACKAGE}/PKGBUILD"
-          sed -i -E "s/^md5sums(_[a-z0-9_]+)?=/sha256sums\1=/" "${PACKAGE}/PKGBUILD"
 
       - name: Run updpkgsums and regenerate .SRCINFO in Arch container
         env:
