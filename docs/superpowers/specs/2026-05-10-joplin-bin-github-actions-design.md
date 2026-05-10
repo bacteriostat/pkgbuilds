@@ -28,6 +28,8 @@ push-to-aur.yml
 
 **Runner:** `ubuntu-latest`
 
+**Permissions:** `actions: write` (required to dispatch `update-pkgbuild.yml`)
+
 **Steps:**
 1. Checkout repo
 2. Query GitHub API (`/repos/laurent22/joplin/releases/latest`), extract version (strip leading `v`), using `GITHUB_TOKEN` to avoid rate limits
@@ -44,8 +46,8 @@ push-to-aur.yml
 **Steps:**
 1. Checkout repo (with write permissions via `GITHUB_TOKEN`)
 2. Install `base-devel` + `pacman-contrib` (provides `updpkgsums` and `makepkg`)
-3. Update `pkgver` to `{version}` and `pkgrel` to `1` in `joplin-bin/PKGBUILD` via `sed`
-4. Run `updpkgsums` inside `joplin-bin/` — downloads sources defined in PKGBUILD, computes checksums, updates PKGBUILD in-place (replaces `md5sums_x86_64` with `sha256sums_x86_64`)
+3. Update `pkgver` to `{version}`, `pkgrel` to `1`, and rename `md5sums_x86_64` to `sha256sums_x86_64` in `joplin-bin/PKGBUILD` via `sed`
+4. Run `updpkgsums` inside `joplin-bin/` — downloads sources defined in PKGBUILD, computes checksums, and fills in the `sha256sums_x86_64` value in-place (`updpkgsums` updates whatever checksum variable is present, so the rename in step 3 must happen first)
 5. Run `makepkg --printsrcinfo > .SRCINFO` inside `joplin-bin/`
 6. Create branch `update/joplin-bin-v{version}`
 7. Commit: `"joplin-bin: update to {version}"`
@@ -65,7 +67,7 @@ push-to-aur.yml
 4. Add `aur.archlinux.org` to `~/.ssh/known_hosts` via `ssh-keyscan`
 5. Clone `ssh://aur@aur.archlinux.org/joplin-bin.git` into a temp dir
 6. Copy `joplin-bin/PKGBUILD` + `joplin-bin/.SRCINFO` into the clone
-7. Set git user to maintainer name/email
+7. Set git user matching the PKGBUILD maintainer line (`bacteriostat`, `dev dot bacteriostat at aleeas dot com`)
 8. Read `pkgver` from PKGBUILD; commit: `"joplin-bin: update to {pkgver}"`
 9. Push to AUR `master`
 
