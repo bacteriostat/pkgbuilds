@@ -7,3 +7,4 @@ packages:
     check_type: github
     upstream: FreeTubeApp/FreeTube
     tag_pattern: 's/^v//;s/-beta$//'
+    release_type: any

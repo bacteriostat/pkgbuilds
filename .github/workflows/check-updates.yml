@@ -28,6 +28,8 @@ jobs:
           for p in pkgs:
               if 'tag_pattern' not in p:
                   p['tag_pattern'] = 's/^v//'
+              if 'release_type' not in p:
+                  p['release_type'] = 'latest'
           print(json.dumps(pkgs))
           ")
           echo "packages=$PACKAGES" >> "$GITHUB_OUTPUT"
@@ -48,13 +50,24 @@ jobs:
         env:
           UPSTREAM_REPO: ${{ matrix.package.upstream }}
           TAG_PATTERN: ${{ matrix.package.tag_pattern }}
+          RELEASE_TYPE: ${{ matrix.package.release_type }}
         run: |
-          TAG=$(curl -s \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest" \
-            | grep '"tag_name"' \
-            | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+          if [[ "${RELEASE_TYPE}" == "any" ]]; then
+            TAG=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${UPSTREAM_REPO}/releases?per_page=1" \
+              | grep '"tag_name"' \
+              | head -1 \
+              | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+          else
+            TAG=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest" \
+              | grep '"tag_name"' \
+              | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+          fi
           if [[ -z "$TAG" ]]; then
             echo "ERROR: Failed to get upstream tag for ${UPSTREAM_REPO}" >&2
             exit 1
