@@ -59,6 +59,10 @@ jobs:
             echo "ERROR: Failed to get upstream tag for ${UPSTREAM_REPO}" >&2
             exit 1
           fi
+          if [[ "$TAG" == "null" ]]; then
+            echo "ERROR: No releases found for ${UPSTREAM_REPO}" >&2
+            exit 1
+          fi
           VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -67,7 +71,7 @@ jobs:
         env:
           PACKAGE: ${{ matrix.package.name }}
         run: |
-          PKGVER=$(grep '^pkgver=' "${PACKAGE}/PKGBUILD" | cut -d= -f2)
+          PKGVER=$(grep '^pkgver=' "${PACKAGE}/PKGBUILD" | cut -d= -f2-)
           echo "version=$PKGVER" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch update if new version found
