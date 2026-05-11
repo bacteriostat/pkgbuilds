@@ -24,7 +24,7 @@ jobs:
           import yaml, json
           with open('.github/packages.yml') as f:
               config = yaml.safe_load(f)
-          pkgs = [p for p in config['packages'] if p.get('check_type') == 'github']
+          pkgs = [p for p in config['packages'] if p.get('check_type') in ('github', 'gitlab')]
           for p in pkgs:
               if 'tag_pattern' not in p:
                   p['tag_pattern'] = 's/^v//'
@@ -51,8 +51,16 @@ jobs:
           UPSTREAM_REPO: ${{ matrix.package.upstream }}
           TAG_PATTERN: ${{ matrix.package.tag_pattern }}
           RELEASE_TYPE: ${{ matrix.package.release_type }}
+          CHECK_TYPE: ${{ matrix.package.check_type }}
         run: |
-          if [[ "${RELEASE_TYPE}" == "any" ]]; then
+          if [[ "${CHECK_TYPE}" == "gitlab" ]]; then
+            ENCODED_REPO="${UPSTREAM_REPO/\//%2F}"
+            TAG=$(curl -s \
+              "https://gitlab.com/api/v4/projects/${ENCODED_REPO}/releases/permalink/latest" \
+              | grep '"tag_name"' \
+              | head -1 \
+              | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+          elif [[ "${RELEASE_TYPE}" == "any" ]]; then
             TAG=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github+json" \

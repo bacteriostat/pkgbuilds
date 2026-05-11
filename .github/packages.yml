@@ -8,3 +8,7 @@ packages:
     upstream: FreeTubeApp/FreeTube
     tag_pattern: 's/^v//;s/-beta$//'
     release_type: any
+  - name: ttf-ezhuthu
+    check_type: gitlab
+    upstream: rit-fonts/ezhuthu
+    tag_pattern: 's/^v//'
