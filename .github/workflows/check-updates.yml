@@ -68,10 +68,9 @@ jobs:
           elif [[ "${CHECK_TYPE}" == "gitlab" ]]; then
             ENCODED_REPO="${UPSTREAM_REPO/\//%2F}"
             TAG=$(curl -s \
-              "https://gitlab.com/api/v4/projects/${ENCODED_REPO}/releases/permalink/latest" \
-              | grep '"tag_name"' \
-              | head -1 \
-              | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+              "https://gitlab.com/api/v4/projects/${ENCODED_REPO}/repository/tags?per_page=1" \
+              | grep -oP '"name":"\K[^"]+' \
+              | head -1)
             VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
           elif [[ "${RELEASE_TYPE}" == "any" ]]; then
             TAG=$(curl -s \
