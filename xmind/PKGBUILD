@@ -18,7 +18,7 @@ depends=(gtk3 alsa-lib libxkbfile nss)
 options=(!strip)
 
 source_x86_64=(
-  "https://dl3.xmind.net/Xmind-for-Linux-amd64bit-${_pkgver}.deb" 
+  "https://dl3.xmind.app/Xmind-for-Linux-amd64bit-${_pkgver}.deb"
   "${pkgname}.desktop" 
   "${pkgname}.sh"
 )

@@ -24,12 +24,14 @@ jobs:
           import yaml, json
           with open('.github/packages.yml') as f:
               config = yaml.safe_load(f)
-          pkgs = [p for p in config['packages'] if p.get('check_type') in ('github', 'gitlab')]
+          pkgs = [p for p in config['packages'] if p.get('check_type') in ('github', 'gitlab', 'xmind_custom')]
           for p in pkgs:
               if 'tag_pattern' not in p:
                   p['tag_pattern'] = 's/^v//'
               if 'release_type' not in p:
                   p['release_type'] = 'latest'
+              if 'pkgver_var' not in p:
+                  p['pkgver_var'] = 'pkgver'
           print(json.dumps(pkgs))
           ")
           echo "packages=$PACKAGES" >> "$GITHUB_OUTPUT"
@@ -52,14 +54,25 @@ jobs:
           TAG_PATTERN: ${{ matrix.package.tag_pattern }}
           RELEASE_TYPE: ${{ matrix.package.release_type }}
           CHECK_TYPE: ${{ matrix.package.check_type }}
+          REDIRECT_URL: ${{ matrix.package.url }}
+          FILENAME_PREFIX: ${{ matrix.package.filename_prefix }}
         run: |
-          if [[ "${CHECK_TYPE}" == "gitlab" ]]; then
+          if [[ "${CHECK_TYPE}" == "xmind_custom" ]]; then
+            DEST=$(curl -sSf -o /dev/null -w '%{redirect_url}' "${REDIRECT_URL}")
+            if [[ -z "$DEST" ]]; then
+              echo "ERROR: No redirect from ${REDIRECT_URL}" >&2
+              exit 1
+            fi
+            FILENAME=$(basename "$DEST" .deb)
+            VERSION="${FILENAME#${FILENAME_PREFIX}}"
+          elif [[ "${CHECK_TYPE}" == "gitlab" ]]; then
             ENCODED_REPO="${UPSTREAM_REPO/\//%2F}"
             TAG=$(curl -s \
               "https://gitlab.com/api/v4/projects/${ENCODED_REPO}/releases/permalink/latest" \
               | grep '"tag_name"' \
               | head -1 \
               | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+            VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
           elif [[ "${RELEASE_TYPE}" == "any" ]]; then
             TAG=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -68,6 +81,7 @@ jobs:
               | grep '"tag_name"' \
               | head -1 \
               | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+            VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
           else
             TAG=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -75,24 +89,25 @@ jobs:
               "https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest" \
               | grep '"tag_name"' \
               | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+            VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
           fi
-          if [[ -z "$TAG" ]]; then
-            echo "ERROR: Failed to get upstream tag for ${UPSTREAM_REPO}" >&2
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: Failed to determine upstream version" >&2
             exit 1
           fi
-          if [[ "$TAG" == "null" ]]; then
-            echo "ERROR: No releases found for ${UPSTREAM_REPO}" >&2
+          if [[ "$VERSION" == "null" ]]; then
+            echo "ERROR: No releases found upstream" >&2
             exit 1
           fi
-          VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Get current pkgver
         id: current
         env:
           PACKAGE: ${{ matrix.package.name }}
+          PKGVER_VAR: ${{ matrix.package.pkgver_var }}
         run: |
-          PKGVER=$(grep '^pkgver=' "${PACKAGE}/PKGBUILD" | cut -d= -f2-)
+          PKGVER=$(grep "^${PKGVER_VAR}=" "${PACKAGE}/PKGBUILD" | cut -d= -f2-)
           echo "version=$PKGVER" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch update if new version found
@@ -102,8 +117,10 @@ jobs:
           UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
           CURRENT_VERSION: ${{ steps.current.outputs.version }}
           PACKAGE: ${{ matrix.package.name }}
+          PKGVER_VAR: ${{ matrix.package.pkgver_var }}
         run: |
           echo "New version for ${PACKAGE}: ${UPSTREAM_VERSION} (current: ${CURRENT_VERSION})"
           gh workflow run update-pkgbuild.yml \
             --field "package=${PACKAGE}" \
-            --field "version=${UPSTREAM_VERSION}"
+            --field "version=${UPSTREAM_VERSION}" \
+            --field "pkgver_var=${PKGVER_VAR}"

@@ -12,3 +12,8 @@ packages:
     check_type: gitlab
     upstream: rit-fonts/ezhuthu
     tag_pattern: 's/^v//'
+  - name: xmind
+    check_type: xmind_custom
+    url: https://xmind.app/zen/download/linux_deb/
+    filename_prefix: Xmind-for-Linux-amd64bit-
+    pkgver_var: _pkgver

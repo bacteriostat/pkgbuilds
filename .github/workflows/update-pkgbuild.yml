@@ -11,6 +11,11 @@ on:
         description: 'New version number (e.g. 3.6.12)'
         required: true
         type: string
+      pkgver_var:
+        description: 'PKGBUILD variable holding the version (default: pkgver)'
+        required: false
+        default: 'pkgver'
+        type: string
 
 concurrency:
   group: update-${{ inputs.package }}
@@ -30,8 +35,9 @@ jobs:
         env:
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
+          PKGVER_VAR: ${{ inputs.pkgver_var }}
         run: |
-          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" "${PACKAGE}/PKGBUILD"
+          sed -i "s/^${PKGVER_VAR}=.*/${PKGVER_VAR}=${VERSION}/" "${PACKAGE}/PKGBUILD"
           sed -i "s/^pkgrel=.*/pkgrel=1/" "${PACKAGE}/PKGBUILD"
 
       - name: Run updpkgsums and regenerate .SRCINFO in Arch container
@@ -56,8 +62,8 @@ jobs:
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
         run: |
-          git config user.name "bacteriostat"
-          git config user.email "dev.bacteriostat@aleeas.com"
+          git config user.name "${{ secrets.AUR_USER_NAME }}"
+          git config user.email "${{ secrets.AUR_USER_EMAIL }}"
           BRANCH="update/${PACKAGE}-v${VERSION}"
           git checkout -b "${BRANCH}" 2>/dev/null || git checkout "${BRANCH}"
           git add "${PACKAGE}/PKGBUILD" "${PACKAGE}/.SRCINFO"
