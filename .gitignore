@@ -35,3 +35,7 @@
 # github workflows are tracked despite the */**/ rule
 !.github/
 !.github/**/
+
+# archived packages are tracked despite the */**/ rule
+!archive/
+!archive/**/
