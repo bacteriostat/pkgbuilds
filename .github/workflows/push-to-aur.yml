@@ -59,7 +59,7 @@ jobs:
               cd "$WORKDIR"
               continue
             fi
-            PKGVER=$(grep -m1 '^pkgver=' PKGBUILD | cut -d= -f2-)
+            PKGVER=$(grep -m1 'pkgver = ' .SRCINFO | awk '{print $3}')
             git commit -m "${PACKAGE}: update to ${PKGVER}"
             if ! git push origin master; then
               echo "ERROR: Failed to push ${PACKAGE} to AUR"
