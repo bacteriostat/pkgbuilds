@@ -61,24 +61,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
-        run: |
-          git config user.name "${{ secrets.AUR_USER_NAME }}"
-          git config user.email "${{ secrets.AUR_USER_EMAIL }}"
-          PKGVER=$(grep -m1 'pkgver = ' "${PACKAGE}/.SRCINFO" | awk '{print $3}')
-          BRANCH="update/${PACKAGE}-v${PKGVER}"
-          git checkout -b "${BRANCH}" 2>/dev/null || git checkout "${BRANCH}"
-          git add "${PACKAGE}/PKGBUILD" "${PACKAGE}/.SRCINFO"
-          if git diff --cached --quiet; then
-            echo "Nothing to commit, skipping"
-          else
-            git commit -m "${PACKAGE}: update to ${PKGVER}"
-          fi
-          git push origin "${BRANCH}" --force-with-lease
-          if gh pr list --head "${BRANCH}" --state open --json number -q '.[0].number' 2>/dev/null | grep -q .; then
-            echo "PR for ${BRANCH} already open, skipping creation"
-          else
-            gh pr create \
-              --title "${PACKAGE}: update to ${PKGVER}" \
-              --body "Automated update to upstream release v${PKGVER}." \
-              --base master
-          fi
+          AUR_USER_NAME: ${{ secrets.AUR_USER_NAME }}
+          AUR_USER_EMAIL: ${{ secrets.AUR_USER_EMAIL }}
+        run: python3 .github/scripts/create_pr.py
