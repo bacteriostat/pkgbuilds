@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -26,8 +25,10 @@ def main() -> None:
     subprocess.run(["git", "config", "user.name", user_name], check=True)
     subprocess.run(["git", "config", "user.email", user_email], check=True)
 
-    result = subprocess.run(["git", "checkout", "-b", branch], capture_output=True)
+    result = subprocess.run(["git", "checkout", "-b", branch], capture_output=True, text=True)
     if result.returncode != 0:
+        if "already exists" not in result.stderr:
+            result.check_returncode()
         subprocess.run(["git", "checkout", branch], check=True)
 
     subprocess.run(
@@ -39,6 +40,8 @@ def main() -> None:
         subprocess.run(
             ["git", "commit", "-m", f"{package}: update to {pkgver}"], check=True
         )
+    else:
+        print("Nothing to commit, skipping")
 
     subprocess.run(
         ["git", "push", "origin", branch, "--force-with-lease"], check=True
@@ -54,6 +57,7 @@ def main() -> None:
         ],
         capture_output=True,
         text=True,
+        check=True,
     )
     if existing.stdout.strip():
         print(f"PR for {branch} already open, skipping creation")

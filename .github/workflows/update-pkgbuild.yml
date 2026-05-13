@@ -60,7 +60,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE: ${{ inputs.package }}
-          VERSION: ${{ inputs.version }}
           AUR_USER_NAME: ${{ secrets.AUR_USER_NAME }}
           AUR_USER_EMAIL: ${{ secrets.AUR_USER_EMAIL }}
         run: python3 .github/scripts/create_pr.py
