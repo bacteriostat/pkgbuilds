@@ -55,12 +55,16 @@ def fetch_github_version(
         with urllib.request.urlopen(req) as r:
             data = json.loads(r.read())
         tag = data[0]["tag_name"]
+        if tag is None:
+            raise RuntimeError("No releases found upstream (tag_name is null)")
     else:
         url = f"https://api.github.com/repos/{upstream_repo}/releases/latest"
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req) as r:
             data = json.loads(r.read())
         tag = data["tag_name"]
+        if tag is None:
+            raise RuntimeError("No releases found upstream (tag_name is null)")
     return apply_tag_pattern(tag, tag_pattern)
 
 
@@ -68,26 +72,27 @@ def main() -> None:
     check_type = os.environ["CHECK_TYPE"]
     tag_pattern = os.environ.get("TAG_PATTERN", "s/^v//")
 
-    if check_type == "xmind_custom":
-        version = fetch_xmind_version(
-            os.environ["REDIRECT_URL"],
-            os.environ.get("FILENAME_PREFIX", ""),
-        )
-    elif check_type == "gitlab":
-        version = fetch_gitlab_version(os.environ["UPSTREAM_REPO"], tag_pattern)
-    else:
-        version = fetch_github_version(
-            os.environ["UPSTREAM_REPO"],
-            tag_pattern,
-            os.environ.get("RELEASE_TYPE", "latest"),
-            os.environ["GITHUB_TOKEN"],
-        )
+    try:
+        if check_type == "xmind_custom":
+            version = fetch_xmind_version(
+                os.environ["REDIRECT_URL"],
+                os.environ.get("FILENAME_PREFIX", ""),
+            )
+        elif check_type == "gitlab":
+            version = fetch_gitlab_version(os.environ["UPSTREAM_REPO"], tag_pattern)
+        else:
+            version = fetch_github_version(
+                os.environ["UPSTREAM_REPO"],
+                tag_pattern,
+                os.environ.get("RELEASE_TYPE", "latest"),
+                os.environ["GITHUB_TOKEN"],
+            )
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if not version:
         print("ERROR: Failed to determine upstream version", file=sys.stderr)
-        sys.exit(1)
-    if version == "null":
-        print("ERROR: No releases found upstream", file=sys.stderr)
         sys.exit(1)
 
     with open(os.environ["GITHUB_OUTPUT"], "a") as f:
