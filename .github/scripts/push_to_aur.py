@@ -26,6 +26,8 @@ def read_pkgver_from_srcinfo(srcinfo_path: Path) -> str:
 
 def push_package(package: str, workdir: Path, user_name: str, user_email: str) -> None:
     aur_dir = Path(f"/tmp/aur-{package}")
+    if aur_dir.exists():
+        shutil.rmtree(aur_dir)
     subprocess.run(
         ["git", "clone", f"ssh://aur@aur.archlinux.org/{package}.git", str(aur_dir)],
         check=True,
