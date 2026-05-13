@@ -41,49 +41,8 @@ jobs:
           CHECK_TYPE: ${{ matrix.package.check_type }}
           REDIRECT_URL: ${{ matrix.package.url }}
           FILENAME_PREFIX: ${{ matrix.package.filename_prefix }}
-        run: |
-          if [[ "${CHECK_TYPE}" == "xmind_custom" ]]; then
-            DEST=$(curl -sSf -o /dev/null -w '%{redirect_url}' "${REDIRECT_URL}")
-            if [[ -z "$DEST" ]]; then
-              echo "ERROR: No redirect from ${REDIRECT_URL}" >&2
-              exit 1
-            fi
-            FILENAME=$(basename "$DEST" .deb)
-            VERSION="${FILENAME#${FILENAME_PREFIX}}"
-          elif [[ "${CHECK_TYPE}" == "gitlab" ]]; then
-            ENCODED_REPO="${UPSTREAM_REPO/\//%2F}"
-            TAG=$(curl -s \
-              "https://gitlab.com/api/v4/projects/${ENCODED_REPO}/repository/tags?per_page=1" \
-              | grep -oP '"name":"\K[^"]+' \
-              | head -1)
-            VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
-          elif [[ "${RELEASE_TYPE}" == "any" ]]; then
-            TAG=$(curl -s \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${UPSTREAM_REPO}/releases?per_page=1" \
-              | grep '"tag_name"' \
-              | head -1 \
-              | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
-            VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
-          else
-            TAG=$(curl -s \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest" \
-              | grep '"tag_name"' \
-              | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
-            VERSION=$(echo "$TAG" | sed "$TAG_PATTERN")
-          fi
-          if [[ -z "$VERSION" ]]; then
-            echo "ERROR: Failed to determine upstream version" >&2
-            exit 1
-          fi
-          if [[ "$VERSION" == "null" ]]; then
-            echo "ERROR: No releases found upstream" >&2
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/check_version.py
 
       - name: Get current pkgver
         id: current
