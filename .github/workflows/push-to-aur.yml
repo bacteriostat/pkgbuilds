@@ -27,47 +27,7 @@ jobs:
           printf 'Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n' >> ~/.ssh/config
 
       - name: Push changed packages to AUR
-        run: |
-          set -euo pipefail
-          WORKDIR=$(pwd)
-          FAILED=()
-          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '/PKGBUILD$' | grep -v '^archive/' | sed 's|/PKGBUILD$||' || true)
-          if [[ -z "$CHANGED" ]]; then
-            echo "No PKGBUILD changes detected"
-            exit 0
-          fi
-          while IFS= read -r PACKAGE; do
-            echo "Pushing ${PACKAGE} to AUR..."
-            if ! git clone "ssh://aur@aur.archlinux.org/${PACKAGE}.git" "/tmp/aur-${PACKAGE}"; then
-              echo "ERROR: Failed to clone AUR repo for ${PACKAGE}"
-              FAILED+=("${PACKAGE}")
-              continue
-            fi
-            if [[ ! -f "${PACKAGE}/.SRCINFO" ]]; then
-              echo "ERROR: ${PACKAGE}/.SRCINFO missing — cannot push to AUR"
-              FAILED+=("${PACKAGE}")
-              continue
-            fi
-            cp "${PACKAGE}/PKGBUILD" "/tmp/aur-${PACKAGE}/"
-            cp "${PACKAGE}/.SRCINFO" "/tmp/aur-${PACKAGE}/"
-            cd "/tmp/aur-${PACKAGE}"
-            git config user.name "bacteriostat"
-            git config user.email "dev.bacteriostat@aleeas.com"
-            git add PKGBUILD .SRCINFO
-            if git diff --quiet --cached; then
-              echo "No changes for ${PACKAGE}, skipping"
-              cd "$WORKDIR"
-              continue
-            fi
-            PKGVER=$(grep -m1 'pkgver = ' .SRCINFO | awk '{print $3}')
-            git commit -m "${PACKAGE}: update to ${PKGVER}"
-            if ! git push origin master; then
-              echo "ERROR: Failed to push ${PACKAGE} to AUR"
-              FAILED+=("${PACKAGE}")
-            fi
-            cd "$WORKDIR"
-          done <<< "$CHANGED"
-          if [[ ${#FAILED[@]} -gt 0 ]]; then
-            echo "FAILED packages: ${FAILED[*]}"
-            exit 1
-          fi
+        env:
+          AUR_USER_NAME: ${{ secrets.AUR_USER_NAME }}
+          AUR_USER_EMAIL: ${{ secrets.AUR_USER_EMAIL }}
+        run: python3 .github/scripts/push_to_aur.py
