@@ -19,22 +19,7 @@ jobs:
 
       - name: Parse packages config
         id: read
-        run: |
-          PACKAGES=$(python3 -c "
-          import yaml, json
-          with open('.github/packages.yml') as f:
-              config = yaml.safe_load(f)
-          pkgs = [p for p in config['packages'] if p.get('check_type') in ('github', 'gitlab', 'xmind_custom')]
-          for p in pkgs:
-              if 'tag_pattern' not in p:
-                  p['tag_pattern'] = 's/^v//'
-              if 'release_type' not in p:
-                  p['release_type'] = 'latest'
-              if 'pkgver_var' not in p:
-                  p['pkgver_var'] = 'pkgver'
-          print(json.dumps(pkgs))
-          ")
-          echo "packages=$PACKAGES" >> "$GITHUB_OUTPUT"
+        run: python3 .github/scripts/parse_packages.py
 
   check:
     needs: load-config
