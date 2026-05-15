@@ -17,3 +17,23 @@ packages:
     url: https://xmind.app/zen/download/linux_deb/
     filename_prefix: Xmind-for-Linux-amd64bit-
     pkgver_var: _pkgver
+  - name: liberica-jdk-11-bin
+    check_type: github
+    upstream: bell-sw/Liberica
+    tag_prefix: "11."
+    release_type: any
+  - name: liberica-jdk-11-full-bin
+    check_type: github
+    upstream: bell-sw/Liberica
+    tag_prefix: "11."
+    release_type: any
+  - name: liberica-jdk-11-lite-bin
+    check_type: github
+    upstream: bell-sw/Liberica
+    tag_prefix: "11."
+    release_type: any
+  - name: liberica-jdk-17-full-bin
+    check_type: github
+    upstream: bell-sw/Liberica
+    tag_prefix: "17."
+    release_type: any
