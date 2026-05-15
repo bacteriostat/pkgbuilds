@@ -42,6 +42,7 @@ jobs:
           REDIRECT_URL: ${{ matrix.package.url }}
           FILENAME_PREFIX: ${{ matrix.package.filename_prefix }}
           TAG_PREFIX: ${{ matrix.package.tag_prefix }}
+          LIBERICA_VARIANT: ${{ matrix.package.variant }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/scripts/check_version.py
 

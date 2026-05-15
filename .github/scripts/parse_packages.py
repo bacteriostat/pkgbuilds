@@ -9,7 +9,7 @@ def load_packages(config_path: str) -> list:
         config = yaml.safe_load(f)
     pkgs = [
         p for p in config["packages"]
-        if p.get("check_type") in ("github", "gitlab", "xmind_custom")
+        if p.get("check_type") in ("github", "gitlab", "xmind_custom", "liberica")
     ]
     for p in pkgs:
         p.setdefault("tag_pattern", "s/^v//")

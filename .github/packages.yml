@@ -18,22 +18,21 @@ packages:
     filename_prefix: Xmind-for-Linux-amd64bit-
     pkgver_var: _pkgver
   - name: liberica-jdk-11-bin
-    check_type: github
+    check_type: liberica
     upstream: bell-sw/Liberica
     tag_prefix: "11."
-    release_type: any
   - name: liberica-jdk-11-full-bin
-    check_type: github
+    check_type: liberica
     upstream: bell-sw/Liberica
     tag_prefix: "11."
-    release_type: any
+    variant: full
   - name: liberica-jdk-11-lite-bin
-    check_type: github
+    check_type: liberica
     upstream: bell-sw/Liberica
     tag_prefix: "11."
-    release_type: any
+    variant: lite
   - name: liberica-jdk-17-full-bin
-    check_type: github
+    check_type: liberica
     upstream: bell-sw/Liberica
     tag_prefix: "17."
-    release_type: any
+    variant: full

@@ -43,25 +43,12 @@ def fetch_gitlab_version(upstream_repo: str, tag_pattern: str) -> str:
 
 
 def fetch_github_version(
-    upstream_repo: str, tag_pattern: str, release_type: str, token: str, tag_prefix: str = ""
+    upstream_repo: str, tag_pattern: str, release_type: str, token: str
 ) -> str:
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
     }
-    if tag_prefix:
-        for page in range(1, 11):
-            url = f"https://api.github.com/repos/{upstream_repo}/releases?per_page=100&page={page}"
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req) as r:
-                data = json.loads(r.read())
-            if not data:
-                break
-            for release in data:
-                tag = release["tag_name"]
-                if tag and tag.startswith(tag_prefix):
-                    return apply_tag_pattern(tag, tag_pattern)
-        raise RuntimeError(f"No release with tag prefix '{tag_prefix}' found in {upstream_repo}")
     if release_type == "any":
         url = f"https://api.github.com/repos/{upstream_repo}/releases?per_page=1"
         req = urllib.request.Request(url, headers=headers)
@@ -81,10 +68,36 @@ def fetch_github_version(
     return apply_tag_pattern(tag, tag_pattern)
 
 
+def fetch_liberica_version(
+    upstream_repo: str, tag_prefix: str, variant: str, token: str
+) -> str:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+    }
+    suffix = f"-linux-amd64{'-' + variant if variant else ''}.tar.gz"
+    for page in range(1, 11):
+        url = f"https://api.github.com/repos/{upstream_repo}/releases?per_page=100&page={page}"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as r:
+            data = json.loads(r.read())
+        if not data:
+            break
+        for release in data:
+            tag = release["tag_name"]
+            if not tag or not tag.startswith(tag_prefix):
+                continue
+            asset_names = [a["name"] for a in release.get("assets", [])]
+            if f"bellsoft-jdk{tag}{suffix}" in asset_names:
+                return tag
+    raise RuntimeError(
+        f"No Liberica release found for prefix '{tag_prefix}' with variant '{variant or 'standard'}'"
+    )
+
+
 def main() -> None:
     check_type = os.environ["CHECK_TYPE"]
     tag_pattern = os.environ.get("TAG_PATTERN", "s/^v//")
-    tag_prefix = os.environ.get("TAG_PREFIX", "")
 
     try:
         if check_type == "xmind_custom":
@@ -94,13 +107,19 @@ def main() -> None:
             )
         elif check_type == "gitlab":
             version = fetch_gitlab_version(os.environ["UPSTREAM_REPO"], tag_pattern)
+        elif check_type == "liberica":
+            version = fetch_liberica_version(
+                os.environ["UPSTREAM_REPO"],
+                os.environ["TAG_PREFIX"],
+                os.environ.get("LIBERICA_VARIANT", ""),
+                os.environ["GITHUB_TOKEN"],
+            )
         else:
             version = fetch_github_version(
                 os.environ["UPSTREAM_REPO"],
                 tag_pattern,
                 os.environ.get("RELEASE_TYPE", "latest"),
                 os.environ["GITHUB_TOKEN"],
-                tag_prefix,
             )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
