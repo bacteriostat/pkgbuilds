@@ -1,9 +1,16 @@
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
+
+
+LIBERICA_API_URL = "https://api.bell-sw.com/v1/liberica/releases"
+RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -68,7 +75,7 @@ def fetch_github_version(
     return apply_tag_pattern(tag, tag_pattern)
 
 
-def fetch_liberica_version(
+def fetch_liberica_version_from_github(
     upstream_repo: str, tag_prefix: str, variant: str, token: str
 ) -> str:
     headers = {
@@ -90,6 +97,58 @@ def fetch_liberica_version(
             asset_names = [a["name"] for a in release.get("assets", [])]
             if f"bellsoft-jdk{tag}{suffix}" in asset_names:
                 return tag
+    raise RuntimeError(
+        f"No Liberica release found for prefix '{tag_prefix}' with variant '{variant or 'standard'}'"
+    )
+
+
+def liberica_version_key(version: str) -> tuple[tuple[int, ...], int]:
+    match = re.fullmatch(r"(\d+(?:\.\d+)*)(?:\+(\d+))?", version)
+    if not match:
+        raise ValueError(f"Unsupported Liberica version format: {version}")
+    return tuple(map(int, match.group(1).split("."))), int(match.group(2) or 0)
+
+
+def fetch_liberica_version(
+    _upstream_repo: str, tag_prefix: str, variant: str, _token: str
+) -> str:
+    params = {
+        "version-feature": tag_prefix.removesuffix("."),
+        "os": "linux",
+        "arch": "x86",
+        "bitness": "64",
+        "package-type": "tar.gz",
+        "bundle-type": f"jdk-{variant}" if variant else "jdk",
+    }
+    url = f"{LIBERICA_API_URL}?{urllib.parse.urlencode(params)}"
+
+    for attempt in range(3):
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "AUR-update-check/1.0",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=30) as response:
+                releases = json.loads(response.read())
+            versions = [
+                release["version"]
+                for release in releases
+                if release.get("version", "").startswith(tag_prefix)
+            ]
+            if versions:
+                return max(versions, key=liberica_version_key)
+            break
+        except urllib.error.HTTPError as error:
+            if error.code not in RETRYABLE_HTTP_CODES or attempt == 2:
+                raise
+        except urllib.error.URLError:
+            if attempt == 2:
+                raise
+        time.sleep(2**attempt)
+
     raise RuntimeError(
         f"No Liberica release found for prefix '{tag_prefix}' with variant '{variant or 'standard'}'"
     )
